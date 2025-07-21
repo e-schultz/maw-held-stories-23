@@ -7,6 +7,251 @@ import { PersonaSelector } from './PersonaSelector';
 import { REPLEngine } from './REPLEngine';
 import { storageService } from '@/services/storage';
 
+// Demo content parser for floatAST format
+const createDemoContent = (): OutlinerNode[] => {
+  const now = new Date();
+  const nodes: OutlinerNode[] = [];
+
+  // Root context entry
+  nodes.push({
+    id: 'demo-root',
+    content: 'ctx:: FLOAT Outliner Demo - Consulting Evolution Synthesis',
+    indent: 0,
+    timestamp: now,
+    persona: 'sysop',
+    type: 'ctx',
+    metadata: {
+      tags: ['demo', 'consulting', 'evolution'],
+      visibility: 'public',
+      ritualMarkers: ['strategic_paradigm_shift']
+    }
+  });
+
+  // Knowledge asymmetry collapse - qtb persona
+  nodes.push({
+    id: 'demo-knowledge-death',
+    content: 'ctx:: The priesthood of Angular and React has lost its power',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 1000),
+    persona: 'qtb',
+    type: 'ctx',
+    metadata: {
+      tags: ['epistemological_collapse', 'influence'],
+      visibility: 'public'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-nick-quote',
+    content: 'insight:: "there\'s no path to influence anymore because we can\'t leverage that unique sort of being the priesthood" - nick',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 2000),
+    persona: 'qtb',
+    type: 'insight',
+    metadata: {
+      tags: ['revolutionary_potential'],
+      visibility: 'public'
+    }
+  });
+
+  // Antic-driven development - lf1m persona
+  nodes.push({
+    id: 'demo-antics',
+    content: 'ctx:: Antic-driven development framework',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 3000),
+    persona: 'lf1m',
+    type: 'ctx',
+    metadata: {
+      tags: ['methodological_resistance', 'antics'],
+      visibility: 'public'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-antics-def',
+    content: 'squirrel:: antics + schematics = playful infrastructure (etymology matters!)',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 4000),
+    persona: 'lf1m',
+    type: 'squirrel',
+    metadata: {
+      tags: ['naming_as_resistance'],
+      visibility: 'public'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-job-stories',
+    content: 'ctx:: Structure: job story → shippable antic → refactor every 4 antics → 16 total',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 5000),
+    persona: 'lf1m',
+    type: 'ctx',
+    metadata: {
+      tags: ['workflow', 'structure'],
+      visibility: 'public'
+    }
+  });
+
+  // Personal SaaS model - karen persona
+  nodes.push({
+    id: 'demo-personal-saas',
+    content: 'ctx:: Software as a Service for One - business model heresy',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 6000),
+    persona: 'karen',
+    type: 'ctx',
+    metadata: {
+      tags: ['business_model_heresy', 'personal_saas'],
+      visibility: 'public'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-economics',
+    content: 'repl:: # Calculate Personal SaaS Economics\nrate = 200  # $/hr for agentic engineers\ndevs = 2\nweeks = 4\nhours_per_week = 40\nsupport_months = 12\n\ntotal_dev_cost = rate * devs * weeks * hours_per_week\nprint(f"Development cost: ${total_dev_cost:,}")\nprint(f"With {support_months} month support: Revolutionary model")',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 7000),
+    persona: 'karen',
+    type: 'repl',
+    executionContext: {
+      code: 'rate = 200\ndevs = 2\nweeks = 4\nhours_per_week = 40\nsupport_months = 12\n\ntotal_dev_cost = rate * devs * weeks * hours_per_week\nprint(f"Development cost: ${total_dev_cost:,}")\nprint(f"With {support_months} month support: Revolutionary model")',
+      output: 'Development cost: $64,000\nWith 12 month support: Revolutionary model',
+      timing: 45,
+      timestamp: new Date(now.getTime() + 7500)
+    },
+    metadata: {
+      tags: ['economics', 'validation'],
+      visibility: 'team'
+    }
+  });
+
+  // RLS debugging nightmare - sysop persona
+  nodes.push({
+    id: 'demo-rls-hell',
+    content: 'ctx:: RLS Technical Theology - debugging as epistemology',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 8000),
+    persona: 'sysop',
+    type: 'ctx',
+    metadata: {
+      tags: ['debugging', 'rls', 'supabase'],
+      visibility: 'team'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-rls-surface',
+    content: 'ctx:: Surface error: "Row Level Security permission denied"',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 9000),
+    persona: 'sysop',
+    type: 'ctx',
+    metadata: {
+      tags: ['surface_symptom'],
+      visibility: 'team'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-rls-truth',
+    content: 'insight:: Deeper truth: auth.uid() returns NULL in SSR context → Frontend fallback creates string IDs instead of UUIDs → Type validation failures masquerading as permission errors',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 10000),
+    persona: 'sysop',
+    type: 'insight',
+    metadata: {
+      tags: ['architectural_truth', 'debugging_revelation'],
+      visibility: 'team'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-bodies-found',
+    content: 'ctx:: Hours invested: 30, Bodies found: 33 🪦',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 11000),
+    persona: 'sysop',
+    type: 'ctx',
+    metadata: {
+      tags: ['debugging_archaeology'],
+      visibility: 'team'
+    }
+  });
+
+  // Evergreen onboarding - evna persona
+  nodes.push({
+    id: 'demo-onboarding',
+    content: 'ritual:: Evergreen Onboarding Kata',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 12000),
+    persona: 'evna',
+    type: 'ritual',
+    metadata: {
+      tags: ['knowledge_transmission', 'onboarding'],
+      visibility: 'public',
+      ritualMarkers: ['capability_building']
+    }
+  });
+
+  nodes.push({
+    id: 'demo-brooks-ref',
+    content: 'insight:: Fred Brooks - programming as theory building. Tacit knowledge made explicit through practice.',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 13000),
+    persona: 'evna',
+    type: 'insight',
+    metadata: {
+      tags: ['theory_building', 'tacit_knowledge'],
+      visibility: 'public'
+    }
+  });
+
+  // Multi-LLM orchestration
+  nodes.push({
+    id: 'demo-llm-orchestra',
+    content: 'ctx:: Multi-LLM Orchestration - consciousness technology praxis',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 14000),
+    persona: 'qtb',
+    type: 'ctx',
+    metadata: {
+      tags: ['consciousness_technology', 'llm_orchestration'],
+      visibility: 'public'
+    }
+  });
+
+  nodes.push({
+    id: 'demo-llm-pattern',
+    content: 'insight:: Pattern: Gemini temporal → Claude analytical. Live meeting context prevents info dumps.',
+    indent: 2,
+    timestamp: new Date(now.getTime() + 15000),
+    persona: 'qtb',
+    type: 'insight',
+    metadata: {
+      tags: ['real_time_strategic_thinking'],
+      visibility: 'public'
+    }
+  });
+
+  // Final synthesis
+  nodes.push({
+    id: 'demo-synthesis',
+    content: 'insight:: Death of knowledge superiority → Birth of systematic delivery speed + agentic maintenance. Recipes over recommendations.',
+    indent: 1,
+    timestamp: new Date(now.getTime() + 16000),
+    persona: 'karen',
+    type: 'insight',
+    metadata: {
+      tags: ['paradigm_shift', 'competitive_advantage'],
+      visibility: 'public'
+    }
+  });
+
+  return nodes;
+};
+
 interface HybridNotesProps {}
 
 export const HybridNotes: React.FC<HybridNotesProps> = () => {
@@ -27,9 +272,19 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     const loadData = async () => {
       try {
         const nodes = await storageService.load();
-        setEntries(nodes);
+        if (nodes.length === 0) {
+          // Load demo content if no data exists
+          const demoNodes = createDemoContent();
+          setEntries(demoNodes);
+          await storageService.save(demoNodes);
+        } else {
+          setEntries(nodes);
+        }
       } catch (error) {
         console.error('Failed to load data:', error);
+        // Fallback to demo content on error
+        const demoNodes = createDemoContent();
+        setEntries(demoNodes);
       }
     };
     loadData();
