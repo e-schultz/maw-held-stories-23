@@ -1,28 +1,48 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, MessageSquare, Upload } from 'lucide-react';
-
-interface Entry {
-  id: string;
-  content: string;
-  timestamp: Date;
-  updatedAt?: Date;
-  indent: number;
-  parentId?: string;
-  type: string; // log, ctx, abc, xyz, etc.
-}
+import { FileText, MessageSquare, Upload, Download, Settings } from 'lucide-react';
+import { OutlinerNode, Persona, NodeType, PERSONA_CONFIGS } from '@/types/outliner';
+import { PersonaSelector } from './PersonaSelector';
+import { REPLEngine } from './REPLEngine';
+import { storageService } from '@/services/storage';
 
 interface HybridNotesProps {}
 
 export const HybridNotes: React.FC<HybridNotesProps> = () => {
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<OutlinerNode[]>([]);
   const [mode, setMode] = useState<'chat' | 'edit'>('chat');
   const [inputValue, setInputValue] = useState('');
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [currentIndent, setCurrentIndent] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
+  const [currentPersona, setCurrentPersona] = useState<Persona>('sysop');
+  const [showPersonaSelector, setShowPersonaSelector] = useState(false);
+  
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const entriesRef = useRef<HTMLDivElement>(null);
+
+  // Load data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const nodes = await storageService.load();
+        setEntries(nodes);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Save data when entries change
+  useEffect(() => {
+    if (entries.length > 0) {
+      storageService.save(entries).catch(error => {
+        console.error('Failed to save data:', error);
+      });
+    }
+  }, [entries]);
 
   // Auto-focus input on mount and mode switch
   useEffect(() => {
@@ -36,26 +56,27 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     if (!selectedEntryId) return 0;
     
     const selectedEntry = entries.find(e => e.id === selectedEntryId);
-    return selectedEntry ? selectedEntry.indent : 0; // Same level, not +1
+    return selectedEntry ? selectedEntry.indent : 0;
   }, [selectedEntryId, entries]);
 
   // Generate unique ID
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-  // Parse entry type and content
-  const parseEntryInput = (input: string) => {
+  // Parse entry type and content based on persona and input
+  const parseEntryInput = (input: string, persona: Persona) => {
     const trimmed = input.trim();
     const typeMatch = trimmed.match(/^(\w+)::\s*(.*)/s);
     
     if (typeMatch) {
+      const type = typeMatch[1] as NodeType;
       return {
-        type: typeMatch[1],
+        type: ['ctx', 'repl', 'insight', 'squirrel', 'ritual', 'narrative'].includes(type) ? type : 'log',
         content: typeMatch[2] || trimmed
       };
     }
     
     return {
-      type: 'log',
+      type: PERSONA_CONFIGS[persona].defaultType,
       content: trimmed
     };
   };
@@ -64,24 +85,28 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
   const addEntry = useCallback(() => {
     if (!inputValue.trim()) return;
 
-    const { type, content } = parseEntryInput(inputValue);
+    const { type, content } = parseEntryInput(inputValue, currentPersona);
 
-    const newEntry: Entry = {
+    const newEntry: OutlinerNode = {
       id: generateId(),
       content,
       timestamp: new Date(),
       indent: getInsertIndent(),
       parentId: selectedEntryId || undefined,
-      type
+      type,
+      persona: currentPersona,
+      metadata: {
+        tags: [],
+        visibility: 'private',
+        ritualMarkers: type === 'ritual' ? ['start'] : undefined
+      }
     };
 
     setEntries(prev => {
       if (!selectedEntryId) {
-        // Append to bottom
         return [...prev, newEntry];
       }
 
-      // Insert after selected entry
       const selectedIndex = prev.findIndex(e => e.id === selectedEntryId);
       if (selectedIndex === -1) return [...prev, newEntry];
 
@@ -91,8 +116,22 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     });
 
     setInputValue('');
-    setSelectedEntryId(newEntry.id); // Auto-select the new entry
-  }, [inputValue, selectedEntryId, getInsertIndent]);
+    setSelectedEntryId(newEntry.id);
+  }, [inputValue, selectedEntryId, getInsertIndent, currentPersona]);
+
+  // Handle REPL execution
+  const handleREPLExecution = useCallback((entryId: string, executionContext: any) => {
+    setEntries(prev => prev.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          executionContext,
+          updatedAt: new Date()
+        };
+      }
+      return entry;
+    }));
+  }, []);
 
   // Handle key navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -100,6 +139,24 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     if (e.ctrlKey && e.key === 'e') {
       e.preventDefault();
       setMode(prev => prev === 'chat' ? 'edit' : 'chat');
+      return;
+    }
+
+    // Ctrl+P: Toggle persona selector
+    if (e.ctrlKey && e.key === 'p') {
+      e.preventDefault();
+      setShowPersonaSelector(prev => !prev);
+      return;
+    }
+
+    // Numbers 1-5: Quick persona switch
+    if (e.ctrlKey && ['1', '2', '3', '4', '5'].includes(e.key)) {
+      e.preventDefault();
+      const personas: Persona[] = ['lf1m', 'sysop', 'karen', 'qtb', 'evna'];
+      const index = parseInt(e.key) - 1;
+      if (personas[index]) {
+        setCurrentPersona(personas[index]);
+      }
       return;
     }
 
@@ -144,14 +201,14 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     // Tab: Indent (when entry is selected)
     if (e.key === 'Tab' && selectedEntryId) {
       e.preventDefault();
-      const maxIndent = 6; // Reasonable limit
+      const maxIndent = 6;
       
       setEntries(prev => prev.map(entry => {
         if (entry.id === selectedEntryId) {
           const newIndent = e.shiftKey 
             ? Math.max(0, entry.indent - 1)
             : Math.min(maxIndent, entry.indent + 1);
-          return { ...entry, indent: newIndent };
+          return { ...entry, indent: newIndent, updatedAt: new Date() };
         }
         return entry;
       }));
@@ -160,7 +217,8 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
   }, [mode, addEntry, entries, selectedEntryId]);
 
   // Format entry content for display
-  const formatEntryContent = (entry: Entry) => {
+  const formatEntryContent = (entry: OutlinerNode) => {
+    const personaConfig = PERSONA_CONFIGS[entry.persona];
     const displayContent = showDetails && entry.type !== 'log' 
       ? `${entry.type}:: ${entry.content}`
       : entry.content;
@@ -194,19 +252,42 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     return `${indentStr}├─ Same level as selected entry`;
   };
 
+  // Export data
+  const handleExport = async () => {
+    try {
+      const blob = await storageService.export();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `float-outliner-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
-    <div className="h-screen bg-terminal-bg text-terminal-fg font-mono flex flex-col">
+    <div className="h-screen bg-terminal-bg text-terminal-fg font-mono flex flex-col" onKeyDown={handleKeyDown}>
       {/* Header */}
       <div className="border-b border-terminal-gray/20 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-terminal-green">Hybrid Notes</h1>
+            <h1 className="text-2xl font-bold text-terminal-green">FLOAT Outliner</h1>
             <p className="text-terminal-gray text-sm">
-              Chat mode for quick logging • Edit mode for full control
+              Multi-persona hierarchical notes • REPL • Chaos navigation
             </p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <PersonaSelector 
+              currentPersona={currentPersona}
+              onPersonaChange={setCurrentPersona}
+              compact
+            />
+            
             <Button
               variant={mode === 'chat' ? 'default' : 'outline'}
               size="sm"
@@ -232,8 +313,28 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
             >
               Details
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="text-xs"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
           </div>
         </div>
+
+        {showPersonaSelector && (
+          <div className="mt-4 p-4 border border-terminal-gray/20 rounded">
+            <PersonaSelector 
+              currentPersona={currentPersona}
+              onPersonaChange={(persona) => {
+                setCurrentPersona(persona);
+                setShowPersonaSelector(false);
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {mode === 'chat' && (
@@ -248,7 +349,10 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
                   <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
                 </div>
-                <span className="text-terminal-gray text-sm ml-2">hybrid-notes.md</span>
+                <span className="text-terminal-gray text-sm ml-2">float-outliner.md</span>
+                <span className={`text-xs ml-4 ${PERSONA_CONFIGS[currentPersona].color}`}>
+                  [{currentPersona}] {PERSONA_CONFIGS[currentPersona].description}
+                </span>
               </div>
             </div>
 
@@ -260,43 +364,75 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
               {entries.length === 0 ? (
                 <div className="text-terminal-gray">
                   <span className="text-terminal-green">➤</span> Start logging your thoughts...
+                  <div className="mt-2 text-xs">
+                    <div>Ctrl+P: Toggle persona selector</div>
+                    <div>Ctrl+1-5: Quick persona switch</div>
+                    <div>type:: content for custom entry types</div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className={`cursor-pointer transition-colors rounded p-2 ${
-                        selectedEntryId === entry.id
-                          ? 'bg-terminal-selection/20 border-l-2 border-terminal-selection'
-                          : 'hover:bg-terminal-gray/10'
-                      }`}
-                      style={{ marginLeft: `${entry.indent * 20}px` }}
-                      onClick={() => setSelectedEntryId(entry.id)}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-terminal-green text-xs mt-1">➤</span>
-                        <div className="flex-1">
-                          <div className="text-terminal-fg">
-                            {formatEntryContent(entry)}
-                          </div>
-                          <div className="flex items-center gap-2 text-terminal-gray text-xs mt-1">
-                            <span>{entry.timestamp.toLocaleTimeString()}</span>
-                            {entry.type !== 'log' && !showDetails && (
-                              <span className="px-1.5 py-0.5 bg-terminal-gray/20 rounded text-xs">
-                                {entry.type}
-                              </span>
-                            )}
-                            {entry.updatedAt && (
-                              <span className="text-yellow-400">
-                                ↻ {entry.updatedAt.toLocaleTimeString()}
-                              </span>
+                  {entries.map((entry) => {
+                    const personaConfig = PERSONA_CONFIGS[entry.persona];
+                    return (
+                      <div
+                        key={entry.id}
+                        className={`cursor-pointer transition-colors rounded p-2 ${
+                          selectedEntryId === entry.id
+                            ? 'bg-terminal-selection/20 border-l-2 border-terminal-selection'
+                            : 'hover:bg-terminal-gray/10'
+                        }`}
+                        style={{ marginLeft: `${entry.indent * 20}px` }}
+                        onClick={() => setSelectedEntryId(entry.id)}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={`text-xs mt-1 ${personaConfig.color}`}>
+                            {entry.persona}
+                          </span>
+                          <div className="flex-1">
+                            <div className="text-terminal-fg">
+                              {formatEntryContent(entry)}
+                            </div>
+                            <div className="flex items-center gap-2 text-terminal-gray text-xs mt-1">
+                              <span>{entry.timestamp.toLocaleTimeString()}</span>
+                              {entry.type !== 'log' && !showDetails && (
+                                <span className="px-1.5 py-0.5 bg-terminal-gray/20 rounded text-xs">
+                                  {entry.type}
+                                </span>
+                              )}
+                              {entry.updatedAt && (
+                                <span className="text-yellow-400">
+                                  ↻ {entry.updatedAt.toLocaleTimeString()}
+                                </span>
+                              )}
+                              {entry.type === 'repl' && (
+                                <REPLEngine
+                                  code={entry.content}
+                                  onExecutionComplete={(context) => handleREPLExecution(entry.id, context)}
+                                />
+                              )}
+                            </div>
+                            {entry.executionContext && (
+                              <div className="mt-2 p-2 bg-terminal-gray/10 rounded text-xs">
+                                {entry.executionContext.error ? (
+                                  <div className="text-red-400">
+                                    Error: {entry.executionContext.error}
+                                  </div>
+                                ) : (
+                                  <div className="text-green-400">
+                                    {entry.executionContext.output}
+                                  </div>
+                                )}
+                                <div className="text-terminal-gray mt-1">
+                                  Executed in {entry.executionContext.timing.toFixed(1)}ms
+                                </div>
+                              </div>
                             )}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -304,18 +440,19 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
             {/* Input Area */}
             <div className="border-t border-terminal-gray/20 p-4">
               <div className="text-terminal-gray text-xs mb-2">
-                {getInsertionIndicator()} • Alt+↑/↓ to select • type:: content for custom types
+                {getInsertionIndicator()} • Alt+↑/↓ to select • Persona: {currentPersona}
               </div>
               
               <div className="flex items-end gap-2">
-                <span className="text-terminal-green">➤</span>
+                <span className={`${PERSONA_CONFIGS[currentPersona].color}`}>
+                  [{currentPersona}]
+                </span>
                 <div className="flex-1">
                   <textarea
                     ref={inputRef}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="log:: What's on your mind? or ctx:: some context"
+                    placeholder={`${PERSONA_CONFIGS[currentPersona].templates[0] || 'log:: '}What's on your mind?`}
                     className="w-full bg-transparent border-none outline-none resize-none text-terminal-fg placeholder-terminal-gray"
                     rows={1}
                     style={{ 
@@ -356,32 +493,45 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
                   <p className="text-muted-foreground">No entries yet. Switch to Chat mode to start logging thoughts.</p>
                 ) : (
                   <div className="space-y-3 font-mono text-sm">
-                    {entries.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-start gap-4"
-                        style={{ marginLeft: `${entry.indent * 20}px` }}
-                      >
-                        <div className="flex items-center gap-2 text-muted-foreground text-xs whitespace-nowrap">
-                          <span>{entry.timestamp.toLocaleTimeString()}</span>
-                          {entry.type !== 'log' && (
-                            <span className="px-1.5 py-0.5 bg-muted rounded text-xs">
-                              {entry.type}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-foreground whitespace-pre-wrap">
-                            {showDetails && entry.type !== 'log' ? `${entry.type}:: ${entry.content}` : entry.content}
+                    {entries.map((entry) => {
+                      const personaConfig = PERSONA_CONFIGS[entry.persona];
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-start gap-4"
+                          style={{ marginLeft: `${entry.indent * 20}px` }}
+                        >
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs whitespace-nowrap">
+                            <span className={personaConfig.color}>{entry.persona}</span>
+                            <span>{entry.timestamp.toLocaleTimeString()}</span>
+                            {entry.type !== 'log' && (
+                              <span className="px-1.5 py-0.5 bg-muted rounded text-xs">
+                                {entry.type}
+                              </span>
+                            )}
                           </div>
-                          {entry.updatedAt && (
-                            <div className="text-yellow-600 text-xs mt-1">
-                              Updated: {entry.updatedAt.toLocaleTimeString()}
+                          <div className="flex-1">
+                            <div className="text-foreground whitespace-pre-wrap">
+                              {showDetails && entry.type !== 'log' ? `${entry.type}:: ${entry.content}` : entry.content}
                             </div>
-                          )}
+                            {entry.executionContext && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {entry.executionContext.error ? (
+                                  <span className="text-red-600">Error: {entry.executionContext.error}</span>
+                                ) : (
+                                  <span className="text-green-600">Output: {entry.executionContext.output}</span>
+                                )}
+                              </div>
+                            )}
+                            {entry.updatedAt && (
+                              <div className="text-yellow-600 text-xs mt-1">
+                                Updated: {entry.updatedAt.toLocaleTimeString()}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
