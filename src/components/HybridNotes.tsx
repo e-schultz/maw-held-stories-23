@@ -524,6 +524,17 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
     }
   };
 
+  // Load demo content
+  const loadDemoContent = async () => {
+    try {
+      const demoNodes = createDemoContent();
+      setEntries(demoNodes);
+      await storageService.save(demoNodes);
+    } catch (error) {
+      console.error('Failed to load demo content:', error);
+    }
+  };
+
   return (
     <div className="h-screen bg-terminal-bg text-terminal-fg font-mono flex flex-col" onKeyDown={handleKeyDown}>
       {/* Header */}
@@ -575,6 +586,14 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
               className="text-xs"
             >
               <Download className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadDemoContent}
+              className="text-xs"
+            >
+              Demo
             </Button>
           </div>
         </div>
