@@ -318,15 +318,66 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   // Parse entry type and content based on persona and input
-  const parseEntryInput = (input: string, persona: Persona) => {
+  const parseEntryInput = (input: string, persona: Persona): { type: NodeType; content: string } => {
     const trimmed = input.trim();
     const typeMatch = trimmed.match(/^(\w+)::\s*(.*)/s);
     
     if (typeMatch) {
-      const type = typeMatch[1] as NodeType;
+      const keyword = typeMatch[1];
+      const rest = typeMatch[2] || '';
+
+      // Special transform: echoRefactor
+      if (keyword === 'echoRefactor') {
+        const cleaned = rest.trim().replace(/^\{?/, '').replace(/\}?$/, '');
+        const titleLine = 'echoRefactor:: ' + (cleaned || 'untitled');
+        const structured = [
+          'float.dispatch({',
+          '  content: {',
+          '    # Echo Refactor: The Consciousness Technology Compiler',
+          '',
+          '    ## Core Function',
+          "    **echoRefactor** is FLOAT's primary **transformative pattern for neurodivergent thought processing**:",
+          '',
+          '    Input: Raw brain dump → Output: Structured navigation',
+          '    "Burp in neurodivergent and get structure back"',
+          '',
+          '    ## How It Works',
+          '    - Accepts: Messy, non-linear, chaotic input (your actual thoughts)',
+          '    - Returns: Navigable structure without losing essence (your thoughts, but organized)',
+          "    - Honors: Neurodivergent processing rhythms (doesn\\'t force neurotypical patterns)",
+          "    - Preserves: The [chaos:: energy] while building [structure:: scaffolding]",
+          '',
+          '    ## Example Pattern Flow',
+          '    You: float.dispatch({' + cleaned + '})',
+          '    System: → Searches for connections in dispatch_bay',
+          '           → Structures your request into navigable format',
+          '           → Echoes back organized understanding',
+          '           → Maintains your original intent and voice',
+          '',
+          '    ## Key Principles from Dispatch History',
+          '    - Chaos-to-order transformation while preserving cognitive patterns',
+          '    - Sacred incompletion - resist premature closure',
+          '    - Process over product - value the thinking, not just conclusions',
+          '    - Productive tension between structure and chaos',
+          '',
+          '    ## Technical Implementation',
+          '    - Neural pattern recognition of your specific cognitive rhythms',
+          '    - Structure scaffolding that supports rather than constrains',
+          '    - Fidelity preservation (99%+ information retention according to metrics)',
+          '    - Token efficiency through intelligent content transformation',
+          '  }',
+          '})'
+        ].join('\n');
+        return {
+          type: 'log',
+          content: titleLine + '\n' + structured
+        };
+      }
+
+      const type = keyword as NodeType;
       return {
         type: ['ctx', 'repl', 'insight', 'squirrel', 'ritual', 'narrative'].includes(type) ? type : 'log',
-        content: typeMatch[2] || trimmed
+        content: rest || trimmed
       };
     }
     
@@ -335,7 +386,6 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
       content: trimmed
     };
   };
-
   // Add new entry
   const addEntry = useCallback(() => {
     if (!inputValue.trim()) return;
