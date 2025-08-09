@@ -386,9 +386,99 @@ export const HybridNotes: React.FC<HybridNotesProps> = () => {
       content: trimmed
     };
   };
+  // Build nested echoRefactor nodes
+  const buildEchoRefactorNodes = (
+    raw: string,
+    baseIndent: number,
+    parentRefId: string | undefined,
+    persona: Persona
+  ): OutlinerNode[] => {
+    const cleaned = raw.trim().replace(/^\{?/, '').replace(/\}?$/, '');
+    const mkId = () => generateId();
+    const now = new Date();
+
+    const parent: OutlinerNode = {
+      id: mkId(),
+      content: `echoRefactor:: ${cleaned || 'untitled'}`,
+      timestamp: now,
+      indent: baseIndent,
+      parentId: parentRefId,
+      type: 'log',
+      persona,
+      metadata: { tags: ['echoRefactor'], visibility: 'private' }
+    };
+
+    const mk = (content: string, type: NodeType = 'ctx', indentOffset = 1): OutlinerNode => ({
+      id: mkId(),
+      content,
+      timestamp: new Date(),
+      indent: baseIndent + indentOffset,
+      parentId: parent.id,
+      type,
+      persona,
+      metadata: { tags: ['echoRefactor'], visibility: 'private' }
+    });
+
+    const children: OutlinerNode[] = [
+      mk('ctx:: # Echo Refactor: The Consciousness Technology Compiler', 'ctx'),
+      mk('ctx:: Core Function', 'ctx'),
+      mk('insight:: Input: Raw brain dump → Output: Structured navigation', 'insight', 2),
+      mk('insight:: "Burp in neurodivergent and get structure back"', 'insight', 2),
+
+      mk('ctx:: How It Works', 'ctx'),
+      mk('insight:: Accepts: Messy, non-linear, chaotic input', 'insight', 2),
+      mk('insight:: Returns: Navigable structure without losing essence', 'insight', 2),
+      mk("insight:: Honors: Neurodivergent processing rhythms", 'insight', 2),
+      mk('insight:: Preserves: [chaos:: energy] with [structure:: scaffolding]', 'insight', 2),
+
+      mk('ctx:: Example Pattern Flow', 'ctx'),
+      mk(`ctx:: You: float.dispatch({${cleaned}})`, 'ctx', 2),
+      mk('ctx:: System: → Searches connections in dispatch_bay', 'ctx', 2),
+      mk('ctx:: → Structures into navigable format', 'ctx', 2),
+      mk('ctx:: → Echoes organized understanding', 'ctx', 2),
+      mk('ctx:: → Maintains original intent and voice', 'ctx', 2),
+
+      mk('ctx:: Key Principles from Dispatch History', 'ctx'),
+      mk('insight:: Chaos-to-order transformation while preserving patterns', 'insight', 2),
+      mk('insight:: Sacred incompletion - resist premature closure', 'insight', 2),
+      mk('insight:: Process over product - value the thinking', 'insight', 2),
+      mk('insight:: Productive tension between structure and chaos', 'insight', 2),
+
+      mk('ctx:: Technical Implementation', 'ctx'),
+      mk('insight:: Neural pattern recognition of your rhythms', 'insight', 2),
+      mk('insight:: Structure scaffolding that supports rather than constrains', 'insight', 2),
+      mk('insight:: Fidelity preservation (99%+ retention)', 'insight', 2),
+      mk('insight:: Token efficiency via intelligent transformation', 'insight', 2)
+    ];
+
+    return [parent, ...children];
+  };
+
   // Add new entry
   const addEntry = useCallback(() => {
     if (!inputValue.trim()) return;
+
+    const echoMatch = inputValue.trim().match(/^echoRefactor::\s*(.*)/s);
+    if (echoMatch) {
+      const rest = echoMatch[1] || '';
+      const baseIndent = getInsertIndent();
+      const nodesToInsert = buildEchoRefactorNodes(rest, baseIndent, selectedEntryId || undefined, currentPersona);
+
+      setEntries(prev => {
+        if (!selectedEntryId) {
+          return [...prev, ...nodesToInsert];
+        }
+        const selectedIndex = prev.findIndex(e => e.id === selectedEntryId);
+        if (selectedIndex === -1) return [...prev, ...nodesToInsert];
+        const newEntries = [...prev];
+        newEntries.splice(selectedIndex + 1, 0, ...nodesToInsert);
+        return newEntries;
+      });
+
+      setInputValue('');
+      setSelectedEntryId(nodesToInsert[0].id);
+      return;
+    }
 
     const { type, content } = parseEntryInput(inputValue, currentPersona);
 
